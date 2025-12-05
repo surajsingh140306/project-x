@@ -1,4 +1,4 @@
- import { NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 
 export async function POST(req: Request) {
   try {
@@ -32,4 +32,45 @@ export async function POST(req: Request) {
             'x-goog-api-key': apiKey,
           },
           body: JSON.stringify({
-            contents: [{ parts: [{
+            contents: [{ parts: [{ text: prompt }] }],
+          }),
+        }
+      );
+
+      const data = await geminiRes.json();
+
+      const text =
+        data?.candidates?.[0]?.content?.parts
+          ?.map((p: any) => p.text ?? '')
+          .join('') ?? '';
+
+      if (!text) {
+        return NextResponse.json(
+          { error: 'Gemini API returned an empty response.' },
+          { status: 500 }
+        );
+      }
+
+      return NextResponse.json({ result: text });
+    }
+
+    // -------- GROQ (future) --------
+    if (provider === 'groq') {
+      return NextResponse.json({
+        result: 'Groq provider not implemented yet.',
+      });
+    }
+
+    return NextResponse.json(
+      { error: 'Unsupported AI_PROVIDER' },
+      { status: 500 }
+    );
+
+  } catch (err) {
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}
+ 
