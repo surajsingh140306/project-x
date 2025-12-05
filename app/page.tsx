@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import { useState } from "react";
+import { useState } from react';
 
 interface GenerateResponse {
   result?: string;
@@ -8,8 +8,8 @@ interface GenerateResponse {
 }
 
 export default function HomePage() {
-  const [prompt, setPrompt] = useState("");
-  const [result, setResult] = useState<string>("");
+  const [prompt, setPrompt] = useState('');
+  const [result, setResult] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
