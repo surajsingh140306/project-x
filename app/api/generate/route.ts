@@ -1,20 +1,30 @@
-import { NextResponse } from 'next/server';
+ import { NextResponse } from 'next/server';
 
-export async function POST(req: Request) {
+interface GenerateRequestBody {
+  prompt?: string;
+}
+
+const GEMINI_ENDPOINT =
+  'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
+
+export async function POST(request: Request) {
   try {
-    const { prompt } = await req.json();
-    if (!prompt || prompt.trim() === '') {
-      return NextResponse.json(
-        { error: 'Prompt is required.' },
-        { status: 400 }
-      );
+    const body = (await request.json()) as GenerateRequestBody;
+    const prompt = body?.prompt?.trim();
+
+    if (!prompt) {
+      return NextResponse.json({ error: 'Prompt is required.' }, { status: 400 });
     }
 
     const provider = process.env.AI_PROVIDER;
 
-    // -------- GEMINI --------
+    if (!provider) {
+      return NextResponse.json({ error: 'Unsupported AI_PROVIDER' }, { status: 500 });
+    }
+
     if (provider === 'gemini') {
       const apiKey = process.env.GEMINI_API_KEY;
+
       if (!apiKey) {
         return NextResponse.json(
           { error: 'GEMINI_API_KEY is not set in the environment.' },
@@ -22,55 +32,43 @@ export async function POST(req: Request) {
         );
       }
 
-      // Gemini REST call
-      const geminiRes = await fetch(
-        'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-goog-api-key': apiKey,
-          },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }],
-          }),
-        }
-      );
+      const geminiResponse = await fetch(GEMINI_ENDPOINT, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-goog-api-key': apiKey
+        },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }]
+        })
+      });
 
-      const data = await geminiRes.json();
+      if (!geminiResponse.ok) {
+        console.error('Gemini API error:', geminiResponse.status);
+        return NextResponse.json({ error: 'Gemini API request failed.' }, { status: 500 });
+      }
 
-      const text =
-        data?.candidates?.[0]?.content?.parts
-          ?.map((p: any) => p.text ?? '')
-          .join('') ?? '';
+      const data = await geminiResponse.json();
+      const textResult =
+        data?.candidates?.[0]?.content?.parts?.map((p: any) => p.text ?? '').join('') ?? '';
 
-      if (!text) {
+      if (!textResult) {
         return NextResponse.json(
           { error: 'Gemini API returned an empty response.' },
           { status: 500 }
         );
       }
 
-      return NextResponse.json({ result: text });
+      return NextResponse.json({ result: textResult });
     }
 
-    // -------- GROQ (future) --------
     if (provider === 'groq') {
-      return NextResponse.json({
-        result: 'Groq provider not implemented yet.',
-      });
+      return NextResponse.json({ result: 'Groq provider not implemented yet.' });
     }
 
-    return NextResponse.json(
-      { error: 'Unsupported AI_PROVIDER' },
-      { status: 500 }
-    );
-
-  } catch (err) {
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Unsupported AI_PROVIDER' }, { status: 500 });
+  } catch (error) {
+    console.error('/api/generate error:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
- 
